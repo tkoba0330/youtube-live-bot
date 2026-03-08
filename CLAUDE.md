@@ -86,6 +86,7 @@ Pythonを推奨する理由:
 ```
 # ストリーム取得
 yt-dlp                  # YouTube配信のストリームURL取得・音声/映像ダウンロード
+                         # ※ yt-dlpはJSランタイム(deno/Node.js)が必要
 ffmpeg-python           # 音声抽出、フレームキャプチャ（ffmpegのPythonバインディング）
 
 # 音声文字起こし
@@ -134,8 +135,11 @@ pytest-asyncio           # 非同期テスト対応
 
 | スコープ | 用途 |
 |---|---|
-| `https://www.googleapis.com/auth/youtube` | ライブチャットの読み書き |
+| `https://www.googleapis.com/auth/youtube.force-ssl` | ライブチャットの読み書き（推奨） |
+| `https://www.googleapis.com/auth/youtube` | ライブチャットの読み書き（広範なスコープ） |
 | `https://www.googleapis.com/auth/youtube.readonly` | ライブチャットの読み取りのみ |
+
+> **注意**: サービスアカウントはYouTube Live Streaming APIでは使用不可。標準のOAuth 2.0ユーザー同意フローが必須。
 
 ### 主要エンドポイント
 
@@ -151,6 +155,39 @@ pytest-asyncio           # 非同期テスト対応
 - `insert` 操作: 約 **50 units**
 - `streamList` はポーリング方式の `list` よりクォータ消費が少ない（推奨）
 - クォータ不足の場合はGoogle API Consoleから増枠申請が可能
+- 参考: 5秒間隔でポーリング×1時間 ≈ 720 units、コメント投稿1回 = 50 units
+
+### liveChatIdの取得フロー
+
+1. `videos.list` で対象動画の `liveStreamingDetails.activeLiveChatId` を取得
+2. 取得した `liveChatId` を使って `liveChatMessages.list` / `insert` を呼び出す
+
+---
+
+## STTサービス比較
+
+| サービス | リアルタイム対応 | 遅延 | 料金（目安） | 特徴 |
+|---|---|---|---|---|
+| **Deepgram Nova-3** | WebSocket | <300ms | $0.26/hr | 最低遅延、ストリーミング特化 |
+| **AssemblyAI** | WebSocket | <300ms | $0.37/hr | 高精度、テキスト整形が優秀 |
+| **OpenAI Whisper API** | バッチのみ | 500ms+ | $0.36/hr | ストリーミング非対応 |
+| **faster-whisper（ローカル）** | チャンク処理 | 1-5s | 無料（GPU必要） | セルフホスト、完全制御 |
+| **Google Cloud STT** | gRPC | 中程度 | $1.00/hr | 多言語対応（100+） |
+
+> **推奨**: コスト重視ならfaster-whisper（GPU必須）、低遅延重視ならDeepgram Nova-3、テキスト品質重視ならAssemblyAI
+
+---
+
+## マルチモーダルLLM比較（画像解析・コメント生成）
+
+| モデル | 強み | 料金（入力/MTok） |
+|---|---|---|
+| **Claude Sonnet 4** | テキスト読取・推論が優秀、コスト効率良 | $3 |
+| **Claude Opus 4** | 最高精度の推論能力 | $15 |
+| **GPT-4o** | ベンチマーク高スコア、画像+音声対応 | $2.50-$10 |
+| **Gemini 2.0 Flash** | 動画・音声ネイティブ対応、低コスト | 低価格帯 |
+
+> **推奨**: 定期スナップショット解析にはClaude Sonnet 4が品質・コストのバランスが最適
 
 ---
 
@@ -172,7 +209,7 @@ pytest-asyncio           # 非同期テスト対応
 
 - **課題**: Whisperはバッチ処理向けに設計されており、リアルタイムストリーミングでは遅延が発生する
 - **対策**: WhisperLiveKit / SimulStreamingを使用。インテリジェントなバッファリングと逐次処理で3〜5秒程度の遅延に抑制可能
-- **代替案**: Google Cloud Speech-to-Text Streaming API や Deepgram を使えば遅延を1秒以下に抑えられるが、コストが発生
+- **代替案**: Deepgram Nova-3（WebSocket、遅延<300ms、$0.0043/min）やAssemblyAI（WebSocket、高精度テキスト整形）を使えば遅延を大幅に抑えられる
 
 #### 2. APIクォータ制限（中程度）
 
