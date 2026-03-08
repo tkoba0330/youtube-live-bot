@@ -104,7 +104,7 @@ whisperlivekit           # リアルタイムストリーミング対応のWhisp
 # 画像解析 / コメント生成
 anthropic                # Claude API（Vision対応 / コメント生成）
 # または
-openai                   # GPT-4.1 / GPT-4o（Vision対応 / コメント生成）
+openai                   # GPT-5.x（Vision対応 / コメント生成）
 
 # YouTube API
 google-api-python-client # YouTube Data API v3
@@ -202,32 +202,46 @@ pytest-asyncio           # 非同期テスト対応
 
 | モデル | Vision | 入力/MTok | 出力/MTok | 特徴 |
 |---|---|---|---|---|
-| **GPT-4.1** | Yes | $2 | $8 | 1Mコンテキスト、最新汎用モデル |
-| **GPT-4o** | Yes | $2.50 | $10 | 画像+音声対応、マルチモーダル |
-| **GPT-4o mini** | Yes | $0.15 | $0.60 | 超低コスト、軽量タスク向け |
-| **o3** | Yes | $2 | $8 | 推論特化（reasoning tokens別途消費） |
-| **o4-mini** | Yes | $1.10 | $4.40 | 推論特化の軽量版 |
+| **GPT-5.4** | Yes | $2.50 | $15 | 最新フラッグシップ（2026年3月）、1Mコンテキスト |
+| **GPT-5.2** | Yes | $1.75 | $14 | ScreenSpot-Pro 86.3%、優れた画像理解 |
+| **GPT-5** | Yes | $1.25 | $10 | 安定した汎用マルチモーダルモデル |
+| **GPT-5 Mini** | Yes | $0.25 | $2 | 高速・低コスト |
+| **GPT-5 Nano** | Yes | $0.05 | $0.40 | 最安クラス、要約・分類向け |
+| **GPT-4.1** | Yes | $2 | $8 | 旧世代、まだ利用可能 |
 
-- o系モデルはreasoning tokensが出力トークンとして課金される点に注意
+- Batch API: 50%割引、キャッシュ入力: 50-90%割引
+- o系推論モデル（o3: $2/$8、o4-mini: $1.10/$4.40）もVision対応だがreasoning tokens別途消費
 
 ### Google Gemini
 
 | モデル | Vision | 入力/MTok | 出力/MTok | 特徴 |
 |---|---|---|---|---|
-| **Gemini 2.5 Pro** | Yes | $1.25 | $10 | 1Mコンテキスト、高精度 |
+| **Gemini 3.1 Pro Preview** | Yes | $2 | $12 | 最新Pro（200K超: $4/$18） |
+| **Gemini 3 Flash Preview** | Yes | $0.50 | $3 | MMMU Pro 79%、Vision最高クラスのコスパ |
+| **Gemini 2.5 Pro** | Yes | $1.25 | $10 | 安定版、1Mコンテキスト |
 | **Gemini 2.5 Flash** | Yes | $0.30 | $2.50 | 低コスト・高速、音声入力対応 |
-| **Gemini 2.5 Flash-Lite** | Yes | $0.10 | $0.40 | 最安クラス、シンプルなタスク向け |
+| **Gemini 2.5 Flash-Lite** | Yes | $0.10 | $0.40 | 最安クラス |
 
-- 画像入力: 1画像 ≈ 258トークン
+- 画像入力: 1画像 ≈ 258トークン、音声・動画もネイティブ対応
 - 無料枠あり（1日1,000リクエストまで）
+- Gemini 3 Pro Preview は 2026/3/9 で非推奨 → 3.1 Pro Preview へ移行
+
+### その他注目モデル
+
+| モデル | Vision | 入力/MTok（目安） | 特徴 |
+|---|---|---|---|
+| **Meta Llama 4 Scout** | Yes | セルフホスト | 10Mコンテキスト、OSS最強クラス |
+| **DeepSeek V3.2** | 限定的 | ~$0.14 | 685B MoE、超低コスト |
+| **xAI Grok** | Yes | ~$0.20 | API最安クラス |
 
 ### 本プロジェクトでの推奨
 
 | 用途 | 推奨モデル | 理由 |
 |---|---|---|
-| **スナップショット画像解析** | Claude Haiku 4.5 / Gemini 2.5 Flash | 定期的に呼ばれるため低コスト重視。画面の要約程度なら十分な精度 |
-| **コメント生成** | Claude Sonnet 4.6 | 配信コンテキストの理解と自然なコメント生成に高い品質が必要 |
-| **コスト最小構成** | Gemini 2.5 Flash-Lite（画像） + Gemini 2.5 Flash（コメント） | 全体で最も安価 |
+| **スナップショット画像解析** | Gemini 3 Flash / Gemini 2.5 Flash | Vision精度トップクラスかつ低コスト（$0.30〜$0.50/MTok） |
+| **コメント生成** | Claude Sonnet 4.6 | 配信コンテキストの理解と自然な日本語コメント生成に高品質が必要 |
+| **コスト最小構成** | Gemini 2.5 Flash-Lite（画像） + GPT-5 Nano（コメント） | 全体で最も安価 |
+| **品質最優先構成** | Claude Sonnet 4.6（画像+コメント一体） | 画像解析とコメント生成を1回のAPI呼び出しで処理 |
 
 ---
 
@@ -240,8 +254,8 @@ pytest-asyncio           # 非同期テスト対応
 | YouTube Live Chatへのコメント投稿 | YouTube Data API v3 `liveChatMessages.insert` で公式サポート |
 | ライブ配信の音声取得 | yt-dlp + ffmpeg でストリームURLを取得しリアルタイムでパイプ処理可能 |
 | 画面スナップショット取得 | ffmpeg で `-vf fps=1/N` により定期的なフレーム抽出が可能 |
-| LLMによるコメント生成 | Claude Sonnet 4.6 / GPT-4.1 等のAPIで、コンテキストに基づくテキスト生成は成熟した技術 |
-| マルチモーダル画像解析 | Claude Vision / GPT-4.1 / Gemini 2.5 で画像の内容理解が可能 |
+| LLMによるコメント生成 | Claude Sonnet 4.6 / GPT-5.x 等のAPIで、コンテキストに基づくテキスト生成は成熟した技術 |
+| マルチモーダル画像解析 | Claude Vision / GPT-5.x / Gemini 3.x で画像の内容理解が可能 |
 
 ### 技術的課題
 
